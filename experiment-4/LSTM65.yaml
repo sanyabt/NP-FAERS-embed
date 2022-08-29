@@ -6,9 +6,9 @@ MAXLEN: 65
 Model_Name: BEST_LSTM65
 Model_Type: lstm
 Learning_Rate: 0.001
-Embedding_Dimensions: 10
-Number_RNN_Nodes: 100 
-Number_Dense_Nodes: 100
+Embedding_Dimensions: 100
+Number_RNN_Nodes: 65 
+Number_Dense_Nodes: 10
 Number_Layers: 1
 Activation_Function: tanh
 Margin: 1.0
