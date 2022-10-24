@@ -138,6 +138,6 @@ dmypy.json
 .index
 
 # Folder
-/data/*.pkl
-/ModelCheckpointSaves
+data/*.pkl
+ModelCheckpointSaves/
 
