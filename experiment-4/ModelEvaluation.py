@@ -52,9 +52,8 @@ def find_Model_ranks(model: tf.keras.Model, df: pd.DataFrame, targets: pd.DataFr
     Returns
     -------
     df : pd.DataFrame
-        Returns the padded 'x', 'y', 'rank1', 'rank2', 'rank3', 'rank4', 'rank5' series.
-        And additionally the 'exact_rank' and 'equivalent_rank' series and the 'rank1_distance', 'rank2_distance', 
-        'rank3_distance', 'rank4_distance', 'rank5_distance' if requested.
+        Returns the padded 'x', 'y', 'rank1', ..., 'rank#' series.
+        And additionally the 'exact_rank' and 'equivalent_rank' series and the 'rank1_distance', ..., 'rank#_distance' if requested.
     
     """
     for i in range(1, ranks +1):
@@ -67,7 +66,7 @@ def find_Model_ranks(model: tf.keras.Model, df: pd.DataFrame, targets: pd.DataFr
     if find_related_rank:
         df.assign(exact_rank= np.Inf, equivalent_rank = np.Inf)
     
-    distances = df["Processed_"+ df.columns[0]].apply(predicted_distances, vector2 = np.stack(targets['dUnique_seq_padded']), number_targets = targets.index.size, model = model)
+    distances = df["Processed_"+ df.columns[0]].apply(predicted_distances, vector2 = np.stack(targets[targets.columns[1]]), number_targets = targets.index.size, model = model)
     sortings = distances.apply(np.argsort, axis=0).apply(lambda x: x[0:ranks])
     
     for i in df.index:
@@ -76,7 +75,7 @@ def find_Model_ranks(model: tf.keras.Model, df: pd.DataFrame, targets: pd.DataFr
         
         # Top-5 smalles distances
         for n in range(ranks):
-            df.at[i, 'rank{}'.format(n+1)] = targets['dUnique_label'][argsort[n]]  
+            df.at[i, 'rank{}'.format(n+1)] = targets[targets.columns[0]][argsort[n]]  
 
             if report_distances:
                  df.at[i,'rank{}_distance'.format(n+1)] = predicts[argsort[n]]   
@@ -156,7 +155,7 @@ def find_Levenshtein_ranks(df: pd.DataFrame, targets: pd.DataFrame, equivalence_
         df.assign(exact_rank= np.Inf, equivalent_rank = np.Inf)
         
     
-    distances = df["Processed_"+ df.columns[0]].apply(normalized_levenshtein, vector2 = np.stack(targets['dUnique_seq_padded']), number_targets = targets.index.size).transform(lambda x : np.array(x))
+    distances = df["Processed_"+ df.columns[0]].apply(normalized_levenshtein, vector2 = np.stack(targets[targets.columns[1]]), number_targets = targets.index.size).transform(lambda x : np.array(x))
     sortings = distances.apply(np.argsort, axis=0).apply(lambda x: x[0:ranks])
 
     for i in df.index:
@@ -165,7 +164,7 @@ def find_Levenshtein_ranks(df: pd.DataFrame, targets: pd.DataFrame, equivalence_
         
         # Top-5 smalles distances
         for n in range(ranks):
-            df.at[i, 'rank{}'.format(n+1)] = targets['dUnique_label'][argsort[n]]  
+            df.at[i, 'rank{}'.format(n+1)] = targets[targets.columns[0]][argsort[n]]  
 
             if report_distances:
                  df.at[i,'rank{}_distance'.format(n+1)] = predicts[argsort[n]]   
@@ -231,7 +230,7 @@ def find_Gesalt_ranks(df: pd.DataFrame, targets: pd.DataFrame, equivalence_set: 
         [
             df,
             pd.DataFrame(
-                df[df.columns[0]].apply(lambda x: get_close_matches(x, targets["dUnique_label"].to_list(), n= ranks, cutoff=0.0)).to_list(),
+                df[df.columns[0]].apply(lambda x: get_close_matches(x, targets[targets.columns[0]].to_list(), n= ranks, cutoff=0.0)).to_list(),
                 columns = ranks_set,
                 index = df.index
             )

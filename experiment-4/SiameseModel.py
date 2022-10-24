@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
 from typing import Literal, List
+plt.rcParams['patch.force_edgecolor'] = True
+
 
 import tensorflow as tf
 print("tf.version: ", tf.version.VERSION)
@@ -29,13 +31,18 @@ def plt_metric(history, metric, title, has_valid=True):
     Returns:
         None.
     """
+    plt.figure(figsize=(15,10))
     plt.plot(history[metric])
     if has_valid:
         plt.plot(history["val_" + metric])
-        plt.legend(["train", "validation"], loc="upper left")
-    plt.title(title)
-    plt.ylabel(metric)
-    plt.xlabel("epoch")
+        plt.legend(["Train", "Validation"], loc="upper left")
+    plt.title(title, fontsize='xx-large', weight="bold")
+    plt.ylabel(metric.capitalize(), fontsize='large', weight="bold")
+    plt.xlabel("Epoch", fontsize='large', weight="bold")
+    if metric == "accuracy":
+        plt.axhline(y=max(history["val_" + metric]), color="gray", linestyle="--")
+    elif metric == "loss":
+        plt.axhline(y=min(history["val_" + metric]), color="gray", linestyle="--")
     plt.show()
 
 class CosineSimilarity(tf.keras.layers.Layer):
@@ -120,37 +127,39 @@ class ContrastiveLoss(tf.keras.losses.Loss):
     def from_config(cls, config):
         return cls(**config)
     
-def get_model(model_type: Literal["lstm", "gru", "rnn"], maxlen: int, embedding_dim: int, num_rnn_node: int, bidirectional: bool, num_dense_node: int, num_layer: int, activation_fn: str, learning_rate: float, optimizer_fn: Literal["Adam", "RMSprop", "SGD"], margin: float, output_activation: str) -> tf.keras.Model: 
+def get_model(model_type: Literal["lstm", "gru", "rnn"], maxlen: int, embedding_dim: int, num_rnn_node: int, bidirectional: bool, num_dense_node: int, num_layer: int, activation_fn: str, learning_rate: float, optimizer_fn: Literal["Adam", "RMSprop", "SGD"], margin: float, output_activation: str, random_seed: int) -> tf.keras.Model: 
     '''Specifies the architecture of the model to be trained.
     '''
+
+#     tf.random.set_seed(random_seed)
+
     input_x = tf.keras.layers.Input(maxlen)
     input_1 = tf.keras.layers.Input(maxlen)
     input_2 = tf.keras.layers.Input(maxlen)
     embedding = tf.keras.layers.Embedding(input_dim=28, output_dim=embedding_dim, mask_zero=True)
     x = tf.keras.layers.BatchNormalization()(embedding(input_x))
     
-    initializer = tf.keras.initializers.GlorotUniform()
     match model_type:
         case "lstm":
             if bidirectional:
-                x = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(num_rnn_node, kernel_initializer= initializer))(x)
+                x = tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(num_rnn_node))(x)
             else:
-                x = tf.keras.layers.LSTM(num_rnn_node, kernel_initializer= initializer)(x)
+                x = tf.keras.layers.LSTM(num_rnn_node)(x)
         case "gru":
             if bidirectional:
-                x = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(num_rnn_node, kernel_initializer= initializer))(x)
+                x = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(num_rnn_node))(x)
             else:
-                x = tf.keras.layers.GRU(num_rnn_node, kernel_initializer= initializer)(x)
+                x = tf.keras.layers.GRU(num_rnn_node)(x)
         case "rnn":
             if bidirectional:
-                x = tf.keras.layers.Bidirectional(tf.keras.layers.SimpleRNN(num_rnn_node, kernel_initializer= initializer))(x)
+                x = tf.keras.layers.Bidirectional(tf.keras.layers.SimpleRNN(num_rnn_node))(x)
             else:
-                x = tf.keras.layers.SimpleRNN(num_rnn_node, kernel_initializer= initializer)(x)
+                x = tf.keras.layers.SimpleRNN(num_rnn_node)(x)
     
         
     num = num_dense_node
     for _ in range(num_layer):
-        x = tf.keras.layers.Dense(num, kernel_initializer = initializer, activation=activation_fn)(x)
+        x = tf.keras.layers.Dense(num, activation=activation_fn)(x)
         num /= 2
         
     embedding_network = tf.keras.Model(input_x, x)
@@ -163,7 +172,7 @@ def get_model(model_type: Literal["lstm", "gru", "rnn"], maxlen: int, embedding_
     cosine_distance = CosineDistance()
     merge_layer = tf.keras.layers.Lambda(cosine_distance)([tower_1, tower_2])
     normal_layer = tf.keras.layers.BatchNormalization()(merge_layer)
-    output_layer = tf.keras.layers.Dense(1, activation="hard_sigmoid")(normal_layer)
+    output_layer = tf.keras.layers.Dense(1, activation= output_activation)(normal_layer)
     contr = tf.keras.Model(inputs=[input_1, input_2], outputs=output_layer)
     
     match optimizer_fn:

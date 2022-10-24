@@ -3,16 +3,17 @@
 ---
 # Maximum sequence length including padding
 MAXLEN: 65
-Noise_threshold: 0.25
+Random_Seed: 787
+Noise_threshold: 0.40
 Model_Name: BEST_LSTM65
 Model_Type: lstm
 Learning_Rate: 0.001
-Embedding_Dimensions: 200
+Embedding_Dimensions: 30
 Number_RNN_Nodes: 65
 Bidirectional: True
-Number_Dense_Nodes: 180
-Number_Layers: 1
+Number_Dense_Nodes: 130
+Number_Layers: 2
 Activation_Function: tanh
 Margin: 1.0
 Optimizer: Adam
-Output_Activation: hard_sigmoid
+Output_Activation: sigmoid

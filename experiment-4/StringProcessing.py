@@ -7,6 +7,8 @@ import re
 import string
 from typing import Literal, List
 
+# random.seed(2022)
+
 global encode_dict 
 encode_dict = {l:i for i,l in enumerate(string.ascii_uppercase + " ", 1)}
 
@@ -35,8 +37,7 @@ def clean(text: str) -> str:
         
     Returns
     -------
-    text : str
-        Cleaned and uppercased text. 
+    Cleaned and uppercased text. Eg. "Ac-d" -> "ACD"
     '''
     regex = re.compile('[^a-zA-Z ]')
     r = regex.sub('', text)
@@ -44,34 +45,7 @@ def clean(text: str) -> str:
     result = result.strip()
     return result.upper()
 
-
-def encode_sequence(string: str) -> List[int]:
-    '''Maps a string from text representation to am integer list representation.
-    
-    Parameters
-    ----------
-    string : str
-        Sting to be encoded into an int sequence.
-    
-    Returns
-    -------
-    Integer sequence as List[Int].
-    '''
-    return list(map(encode_dict.get, string))
-    
-def pad_sequence(sequence: List[int], maxlen: int = 65) -> List[int]:
-    '''
-    Parameters
-    ----------
-    text : str
-        
-    Returns
-    -------
-    text : str
-    '''
-    return sequence + ([0]* (maxlen -len(sequence)))
-
-def add_noise(w: str, percent: float = 0.1, maxlen: int = 65) -> str:
+def add_noise(w: str, percent: float, maxlen: int) -> str:
     ''' Adds a specified proportion of noise to a string.
     
     Expects a string and a number stating the percent of noise to add to this string.
@@ -93,13 +67,15 @@ def add_noise(w: str, percent: float = 0.1, maxlen: int = 65) -> str:
     w : str
         The string to add noise to.
     
-    percent: float, defaults to 10% if not specified
+    percent: float
         Percentange representing the proportion of noise to add to the string.
+        
+    maxlen: int
+        Maximun lengnth of a valid sequence.
         
     Returns
     -------
-    w : str
-        Modified string with noise added.
+    Modified string with noise added. Eg "ACD" -> "AE D"
     '''
     w_size = len(w)
     positions = random.choices(range(0, w_size), k=round(percent * w_size))
@@ -135,10 +111,15 @@ def add_noise(w: str, percent: float = 0.1, maxlen: int = 65) -> str:
                     w = "".join([w[p+1], w[p], w[p+2:]])
             # else: # skip adding noise 
             # do nothing
-
+            
+    final_size = len(w)
+    if final_size > maxlen:
+        positions = random.choices(range(0, final_size), k = (final_size - maxlen))
+        w = ''.join([w[i] for i in range(0, final_size) if i not in positions])
+    
     return w
-        
-def balance_dataset(df: pd.DataFrame, noise_percent: float = 0.10, maxlen: int = 65) -> pd.DataFrame:
+
+def balance_dataset(df: pd.DataFrame, noise_percent: float, maxlen: int) -> pd.DataFrame:
     '''It balances the data within a given DataFrame by adding positive values.
     
     df: pd.DataFrame
@@ -153,13 +134,12 @@ def balance_dataset(df: pd.DataFrame, noise_percent: float = 0.10, maxlen: int =
     
     Returns
     -------
-    df : Pandas DataFrame
+    A copy of the input pd.DataFrame balanced with regards to column "y", positive "x, y" pairs 
+    are created by adding noise to "x".  Eg. ["ACD", "ACD"] -> ["AE D", "ACD"] 
     '''
     df["y"].value_counts(ascending=True).plot(rot=90)
     counts = df["y"].value_counts(ascending=True)
-    # If equallly represented 
-    # If proportionally
-    max_set = counts.max()
+    max_set = round(counts.mean() + counts.std() * 4) 
     for target in counts.index:
         increase_size = round(max_set - counts[target])
         if increase_size > 0:
@@ -170,8 +150,39 @@ def balance_dataset(df: pd.DataFrame, noise_percent: float = 0.10, maxlen: int =
             df = pd.concat([df, tmp_df], ignore_index=True)
     df["y"].value_counts(ascending=True).plot(rot=90)
     return df
+        
+def encode_sequence(string: str) -> List[int]:
+    '''Maps a string from text representation to am integer list representation.
+    
+    Parameters
+    ----------
+    string : str
+        Sting to be encoded into an int sequence.
+    
+    Returns
+    -------
+    The string as an Integer sequence (List[Int]). Eg. "ACD" -> [1,3,5]. 
+    '''
+    return list(map(encode_dict.get, string))
+    
+def pad_sequence(sequence: List[int], maxlen: int) -> List[int]:
+    '''Adds '0' as padding character up to the specified lenght.
+    
+    Parameters
+    ----------
+    sequence : List[int]
+        Encoded sequence where string characters have been mapped to integers.
+        
+    maxlen:
+        Target size of the padding. 
+        
+    Returns
+    -------
+    The padded sequence Eg. [1,3,5] -> [1,3,5, ..., 0, 0, 0]. 
+    '''
+    return sequence + ([0] * (maxlen -len(sequence)))
 
-def preprocessInput(filename: str, maxlen: int = 65, reflexive: bool = False, balance: bool = True, noise: float = 0.20, **kwargs) -> pd.DataFrame:
+def preprocessInput(filename: str, maxlen: int, reflexive: bool, balance: bool, noise: float, **kwargs) -> pd.DataFrame:
     '''Preprocess CSV file into a Pandas DataFrame.
     
     Expects the file name or path of a csv file with named columns containing strings 
@@ -185,17 +196,17 @@ def preprocessInput(filename: str, maxlen: int = 65, reflexive: bool = False, ba
     filename : str
     
     maxlen: int
-        Dafaults to 65. It's used to determine the ammount of padding to add
+        It's used to determine the ammount of padding to add
         to sequences smaller than maxlen.
     
     reflexive: bool
-        Defaults to False. For every pair (x,y) ensure (y,x) is also in the set.
+        For every pair (x,y) ensure (y,x) is also in the set.
     
     balance: bool
-        Defaults to True. Weather the target y values should be balanced.
+        Wether the target y values should be balanced.
         
     noise: float
-        Defaults to 0.20. The threshhold of the maximum ammount of noise to add to a string.
+        The threshhold of the maximum ammount of noise to add to a string.
     
     **kwargs:
         Keyword arguments for pandas read csv function. 
@@ -257,7 +268,7 @@ def preprocessInput(filename: str, maxlen: int = 65, reflexive: bool = False, ba
     return df
 
 
-def encode_pad_tag(df: pd.DataFrame, match: Literal[0,1], distance: Literal[0,1], maxlen: int = 65, verbose: bool = True) -> pd.DataFrame:
+def encode_pad_tag(df: pd.DataFrame, match: Literal[0,1], distance: Literal[0,1], maxlen: int, verbose: bool = True) -> pd.DataFrame:
     '''It encodes, pads and tags the preprocessed sequences in a Pandas DataFrame.
     
     Expects a pandas dataframe with cleaned and uppercased sequences. It processes the 
@@ -301,7 +312,7 @@ def encode_pad_tag(df: pd.DataFrame, match: Literal[0,1], distance: Literal[0,1]
     df["Distance"] = distance
     return df
 
-def generate_noisy_positive_pairs(df: pd.DataFrame, scale: float = 1.0, noise_percent: float = 0.10, maxlen: int = 65) -> pd.DataFrame:
+def generate_noisy_positive_pairs(df: pd.DataFrame, scale: float, noise_percent: float, maxlen: int) -> pd.DataFrame:
     '''Creates noisy positive pairs by adding some noise to the sequences in the 'x'
     column while retaining the match to the correct 'y'.
 
@@ -322,8 +333,7 @@ def generate_noisy_positive_pairs(df: pd.DataFrame, scale: float = 1.0, noise_pe
         size of the input DataFrame.
         
     noise_percent: float
-        Defaults to adding noise to 10% of the character sequence. Indicates the approximate
-        percentage of noise to add to each sequence. 
+        Indicates the approximate percentage of noise to add to each sequence. 
     
 
     Returns
@@ -355,16 +365,22 @@ def generate_noisy_positive_pairs(df: pd.DataFrame, scale: float = 1.0, noise_pe
     return noisy
 
 def get_target_groups_from_connected_components(df: pd.DataFrame) -> List[set]:
-    '''Proceses the 'x' and 'y' pairs to create a graph asociated all terms.
-    Then extracts
+    '''Proceses the 'x' and 'y' pairs to create a graph that connects the associated terms.
+    Then extracts the groups of connected componnents from the graph. 
     
     Parameters
     ----------
     df : pd.DataFrame
+        A Pandas DataFrame containing the 'x' and the 'y' Series.
         
     Returns
     -------
-    df : pd.DataFrame
+        An array of the sets of unique terms that are paired among themselves. 
+        
+        Eg. "x","y"      List[set]
+            [A, B] \
+            [B, C]  => [{A,B,C}, {D}]  
+            [D, D] /
     '''
     unique_targets = df['y'].unique()
     subset = df['x'].apply(lambda x: x in unique_targets)
@@ -373,11 +389,21 @@ def get_target_groups_from_connected_components(df: pd.DataFrame) -> List[set]:
     G.add_edges_from(pairs)
     return list(nx.connected_components(G))
 
-def get_non_match(row, target_groups: List[set], noise: float = 0.20) -> [str, str]:
+def get_non_match(row, target_groups: List[set], noise: float, maxlen: int) -> [str, str]:
     '''
     Parameters
     ----------
-    text : str
+    row : [x,y]
+        A row of the dataset containing and x and y pair.
+        
+    target_groups: List[set]
+        A list of sets, where each set represents an equivalence group of product names.
+        
+    noise: float
+        The maximun ammount of noise to add to the sequence.
+        
+    maxlen: int
+        Maximum size of the sequence.
         
     Returns
     -------
@@ -390,10 +416,10 @@ def get_non_match(row, target_groups: List[set], noise: float = 0.20) -> [str, s
     new_x = random.choice(list(group))
     r = random.uniform(0,1)
     if r < 0.5:
-        new_x = add_noise(new_x, percent = noise)
+        new_x = add_noise(new_x, percent = noise, maxlen = maxlen)
     return new_x, y
 
-def generate_synthethic_negative_pairs(df: pd.DataFrame, equivalences: List[set], noise: float,  scale: float = 1.0, maxlen: int = 65) -> pd.DataFrame:
+def generate_synthethic_negative_pairs(df: pd.DataFrame, equivalences: List[set], noise: float,  scale: float, maxlen: int) -> pd.DataFrame:
     '''Create negative pairs where 'x' does not match the correct 'y'.
 
     For each unique name in the 'y' column sample of the train set, get the name and
@@ -406,10 +432,9 @@ def generate_synthethic_negative_pairs(df: pd.DataFrame, equivalences: List[set]
     Parameters
     ----------
     df: pd.DataFrame
-         A Pandas DataFrame containing the 'FAERS_drug_match' and the 'lookup_value' Series.
+         A Pandas DataFrame containing the 'x' and 'y' Series.
          
     scale: float
-        Defaults to 1.0
         The scale of data to be generated relative to the size of the true positives. 
         Eg. scale = 1.0 generates approximately a 1:1 DataFrame with equivalent true 
         negative pairs relative to the input DataFrame's true positives. And scale = 1.5
@@ -418,47 +443,60 @@ def generate_synthethic_negative_pairs(df: pd.DataFrame, equivalences: List[set]
     Returns
     -------
      df : pd.DataFrame
-        Returns a DataFrame containing the 'FAERS_drug_match', 'lookup_value', 'Processed_FAERS_drug_match', 'Processed_lookup_value' and 'Match' pd.Series from the synthetic data.
+        Returns a DataFrame containing the 'x', 'y', 'Processed_x', 'Processed_y', 'Match', and 'Distance' pd.Series from the synthetic data.
     '''
     synthethic = pd.DataFrame(columns=['x', 'y'])
     
     if scale >= 1.0:
         for _ in range(int(scale)):
-            tmp = df[["x", "y"]].transform(get_non_match, axis=1, target_groups = equivalences, noise = noise)
+            tmp = df[["x", "y"]].transform(get_non_match, axis=1, target_groups = equivalences, noise = noise, maxlen = maxlen)
             synthethic = pd.concat([synthethic, tmp], ignore_index=True)
     
     remainder = scale - int(scale)
     if remainder > 0:
         remaining_sample = df.sample(frac=remainder)
-        tmp = remaining_sample[["x", "y"]].transform(get_non_match, axis=1, target_groups = equivalences)
+        tmp = remaining_sample[["x", "y"]].transform(get_non_match, axis=1, target_groups = equivalences, noise = noise, maxlen = maxlen)
         synthethic = pd.concat([synthethic, tmp], ignore_index=True)
 
     encode_pad_tag(synthethic, match = 0, distance = 1, maxlen= maxlen)
     return synthethic
 
-def balance_complete_set(df: pd.DataFrame, target_groups: List[set], noise_percent: float = 0.30, maxlen: int = 65):
-    '''
+def balance_complete_set(df: pd.DataFrame, target_groups: List[set], noise_percent: float, maxlen: int):
+    '''Attempts to balance the input DataFrame by adding 50% positve and 50% negative synthethic pairs up to the size of 
+    the maximum represented target "y". The goal is to achieve a somewhat uniform representation of all "y" targets.
+    
+    
     Parameters
     ----------
-    text : str
+    df : str
+         A Pandas DataFrame containing the 'x', 'y', and 'Match' series.
+    
+    target_groups: List[set]
+        A list of sets, where each set represents an equivalence group of product names.
         
+    noise_percent: float
+        The maximun ammount of noise to add to the sequence.
+    
+    maxlen: int
+        Maximum size of the sequence.
+    
     Returns
     -------
-    text : str
+    A copy of the input dataframe with the additional records.
     '''
     counts = df["y"].value_counts(ascending=True)
     counts.plot(rot=90)
     for target in counts.index:
-        increase_size = round(counts.max() - counts[target])
+        increase_size = round(counts.mean() + counts.std() * 4) - counts[target]
         if (increase_size//2) > 0:
             increase_set = df[(df["y"] == target) & (df["Match"] == 1)]["x"].sample(n= (increase_size//2), replace= True)
             tmp_df_pos = pd.DataFrame(columns=['x', 'y'])
-            tmp_df_pos["x"] = increase_set.transform(add_noise, percent = noise_percent).to_list()
+            tmp_df_pos["x"] = increase_set.transform(add_noise, percent = noise_percent, maxlen = maxlen).to_list()
             tmp_df_pos["y"] = [target] * (increase_size//2)
             tmp_df_pos = encode_pad_tag(tmp_df_pos, match=1, distance=0, maxlen=maxlen, verbose = False)
             
             increase_set = df[df["y"] == target][["x", "y"]].sample(n = (increase_size//2), replace= True)
-            tmp_df_neg = increase_set.transform(get_non_match, axis=1, target_groups = target_groups)
+            tmp_df_neg = increase_set.transform(get_non_match, axis=1, target_groups = target_groups, noise = noise_percent, maxlen = maxlen)
             tmp_df_neg = encode_pad_tag(tmp_df_neg, match=0, distance=1, maxlen= maxlen, verbose = False)
             
             df = pd.concat([df, tmp_df_pos, tmp_df_neg], ignore_index=True)
@@ -467,7 +505,3 @@ def balance_complete_set(df: pd.DataFrame, target_groups: List[set], noise_perce
         df.drop(df[df[column].apply(len).gt(maxlen)].index, inplace = True)
     df["y"].value_counts(ascending=True).plot(rot=90)
     return df
-
-# TEST_TXT = "Eirmod horrida ingénii pariant secundum? Cognitionem compositis conséquat dicantur exercitus, intellegitur invenire negat oportet sapientium suam. Ceteris diu erat fecerit, impéndéré intelleges máerores malorum mei re reprehendunt? Constringendos intus mentitum quale urna! Convenire cotidie dixit malé vigiliae?"
-
-# clean(TEST_TXT)

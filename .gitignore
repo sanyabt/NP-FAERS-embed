@@ -132,3 +132,12 @@ dmypy.json
 .pkl
 .csv
 .tsv
+.tar.xz
+.html
+.data*
+.index
+
+# Folder
+/data/*.pkl
+/ModelCheckpointSaves
+
