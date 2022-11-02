@@ -220,7 +220,7 @@ def find_Gesalt_ranks(df: pd.DataFrame, targets: pd.DataFrame, equivalence_set: 
     Returns
     -------
     df : pd.DataFrame
-        Returns the padded 'x', 'y', 'rank1', 'rank2', 'rank3', 'rank4', 'rank5' seriess.
+        Returns the padded 'x', 'y', 'rank1', ..., 'rankN' series.
         And additionally the 'exact_rank' and 'equivalent_rank' series if requested.
     
     """   
@@ -230,12 +230,12 @@ def find_Gesalt_ranks(df: pd.DataFrame, targets: pd.DataFrame, equivalence_set: 
         [
             df,
             pd.DataFrame(
-                df[df.columns[0]].apply(lambda x: get_close_matches(x, targets[targets.columns[0]].to_list(), n= ranks, cutoff=0.0)).to_list(),
+                    df[df.columns[0]].apply(lambda x: get_close_matches(x,targets[targets.columns[0]].to_list(), n = ranks, cutoff=0.0)).to_list(),
                 columns = ranks_set,
                 index = df.index
             )
         ], 
-        axis=1, 
+        axis= 1, 
         join="inner"
     )
     
